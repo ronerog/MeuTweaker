@@ -29,6 +29,26 @@ $principal = $principal -replace '(?m)^\s*\.\s*\(Join-Path \$raiz ''engine\.ps1'
 $mesclado = Join-Path $dist '_mesclado.ps1'
 Set-Content -Path $mesclado -Value ($engine + "`n" + $tweaks + "`n" + $principal) -Encoding UTF8
 
+$exeFinal = Join-Path $dist 'MeuTweaker.exe'
+# O Defender costuma manter um lock de leitura sobre um .exe recem-criado por
+# alguns segundos (comportamento normal de scan, nao e deteccao de ameaca).
+# ps2exe tenta apagar o arquivo antigo antes de compilar; se der "acesso
+# negado", renomear funciona (so a exclusao fica bloqueada), entao tentamos
+# isso em vez de esperar.
+if (Test-Path $exeFinal) {
+    $tentativas = 0
+    do {
+        try { Remove-Item $exeFinal -Force -ErrorAction Stop; $removido = $true }
+        catch {
+            $removido = $false
+            $lixo = Join-Path $dist ('_antigo-' + [guid]::NewGuid().ToString('N') + '.exe')
+            try { Move-Item $exeFinal $lixo -Force -ErrorAction Stop; Remove-Item $lixo -Force -ErrorAction SilentlyContinue; $removido = $true }
+            catch { Start-Sleep -Seconds 2 }
+        }
+        $tentativas++
+    } while (-not $removido -and $tentativas -lt 8)
+}
+
 Invoke-ps2exe `
     -inputFile  $mesclado `
     -outputFile (Join-Path $dist 'MeuTweaker.exe') `

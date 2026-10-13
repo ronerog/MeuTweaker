@@ -16,10 +16,38 @@ function Initialize-Estado {
     }
 }
 
+# Converte o resultado de ConvertFrom-Json (PSCustomObject/Object[]) em
+# Hashtable puro, recursivamente. Necessario porque -AsHashtable do
+# ConvertFrom-Json so existe a partir do PowerShell 6 — o .exe gerado pelo
+# ps2exe roda sobre o Windows PowerShell 5.1.
+function ConvertTo-HashtableRecursivo($objeto) {
+    if ($null -eq $objeto) { return $null }
+    if ($objeto -is [System.Collections.IDictionary]) {
+        $h = @{}
+        foreach ($chave in $objeto.Keys) { $h[$chave] = ConvertTo-HashtableRecursivo $objeto[$chave] }
+        return $h
+    }
+    if ($objeto -is [string]) { return $objeto }
+    if ($objeto -is [System.Collections.IEnumerable]) {
+        return @($objeto | ForEach-Object { ConvertTo-HashtableRecursivo $_ })
+    }
+    if ($objeto -is [System.Management.Automation.PSCustomObject]) {
+        $h = @{}
+        foreach ($prop in $objeto.PSObject.Properties) { $h[$prop.Name] = ConvertTo-HashtableRecursivo $prop.Value }
+        return $h
+    }
+    return $objeto
+}
+
 function Get-Estado {
     Initialize-Estado
     if (Test-Path $script:StatePath) {
-        try { return Get-Content $script:StatePath -Raw | ConvertFrom-Json -AsHashtable }
+        try {
+            $json = Get-Content $script:StatePath -Raw | ConvertFrom-Json
+            $estado = ConvertTo-HashtableRecursivo $json
+            if (-not $estado.aplicados) { $estado.aplicados = @{} }
+            return $estado
+        }
         catch { return @{ aplicados = @{} } }
     }
     return @{ aplicados = @{} }

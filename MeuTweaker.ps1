@@ -85,7 +85,7 @@ function Add-LinhaTweak($tweak) {
     $painel.Controls.Add($linha)
 }
 
-$categorias = $script:Tweaks | Where-Object { -not $_.unico } | Select-Object -ExpandProperty categoria -Unique
+$categorias = ($script:Tweaks | Where-Object { -not $_.unico } | ForEach-Object { $_.categoria }) | Select-Object -Unique
 foreach ($cat in $categorias) {
     Add-Secao $cat
     foreach ($t in ($script:Tweaks | Where-Object { $_.categoria -eq $cat -and -not $_.unico })) {
