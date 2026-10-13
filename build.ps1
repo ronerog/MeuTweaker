@@ -18,16 +18,18 @@ $raiz = $PSScriptRoot
 $dist = Join-Path $raiz 'dist'
 New-Item -ItemType Directory -Path $dist -Force | Out-Null
 
-# Mescla os tres scripts num unico arquivo, removendo as linhas de dot-source,
+# Mescla os modulos num unico arquivo, removendo as linhas de dot-source,
 # para que o .exe final seja autocontido (nao dependa de arquivos ao lado).
-$engine    = Get-Content (Join-Path $raiz 'engine.ps1') -Raw
-$tweaks    = Get-Content (Join-Path $raiz 'tweaks.ps1') -Raw
+$modulos = 'engine.ps1', 'tweaks.ps1', 'display.ps1', 'debloat.ps1', 'drivers.ps1', 'perfmon.ps1', 'scan.ps1', 'perfis.ps1'
+$conteudoModulos = ($modulos | ForEach-Object { Get-Content (Join-Path $raiz $_) -Raw }) -join "`n"
+
 $principal = Get-Content (Join-Path $raiz 'MeuTweaker.ps1') -Raw
-$principal = $principal -replace '(?m)^\s*\.\s*\(Join-Path \$raiz ''engine\.ps1''\)\s*$', '' `
-                         -replace '(?m)^\s*\.\s*\(Join-Path \$raiz ''tweaks\.ps1''\)\s*$', ''
+foreach ($m in $modulos) {
+    $principal = $principal -replace "(?m)^\s*\.\s*\(Join-Path \`$raiz '$([regex]::Escape($m))'\)\s*`$", ''
+}
 
 $mesclado = Join-Path $dist '_mesclado.ps1'
-Set-Content -Path $mesclado -Value ($engine + "`n" + $tweaks + "`n" + $principal) -Encoding UTF8
+Set-Content -Path $mesclado -Value ($conteudoModulos + "`n" + $principal) -Encoding UTF8
 
 $exeFinal = Join-Path $dist 'MeuTweaker.exe'
 # O Defender costuma manter um lock de leitura sobre um .exe recem-criado por

@@ -139,6 +139,21 @@ function Invoke-Tweak($tweak) {
     $estado = Get-Estado
     if (-not $estado.aplicados) { $estado.aplicados = @{} }
 
+    if ($tweak.tipoEspecial -eq 'maxHz') {
+        $info = Get-InfoMonitor
+        if (-not $info) { return @{ id = $tweak.id; ok = $false; detail = 'Nao foi possivel ler o monitor.' } }
+        if ($info.atual -ge $info.maximo) {
+            $estado.aplicados[$tweak.id] = @{ em = (Get-Date).ToString('o'); backup = @{ hzAnterior = $info.atual } }
+            Save-Estado $estado
+            return @{ id = $tweak.id; ok = $true; detail = "Ja estava no maximo ($($info.maximo) Hz)."; noop = $true }
+        }
+        $r = Set-HzMonitor $info.maximo
+        if (-not $r.ok) { return @{ id = $tweak.id; ok = $false; detail = $r.detail } }
+        $estado.aplicados[$tweak.id] = @{ em = (Get-Date).ToString('o'); backup = @{ hzAnterior = $info.atual } }
+        Save-Estado $estado
+        return @{ id = $tweak.id; ok = $true; detail = "$($info.atual) Hz -> $($info.maximo) Hz" }
+    }
+
     $backup = @{ regOps = @() }
 
     if ($tweak.regOps) {
@@ -182,6 +197,14 @@ function Revert-Tweak($tweak) {
     if (-not $estado.aplicados) { $estado.aplicados = @{} }
     $entrada = $estado.aplicados[$tweak.id]
     if (-not $entrada) { return @{ id = $tweak.id; ok = $true; detail = 'Nada a reverter.' } }
+
+    if ($tweak.tipoEspecial -eq 'maxHz') {
+        $anterior = $entrada.backup.hzAnterior
+        if ($anterior) { Set-HzMonitor ([int]$anterior) | Out-Null }
+        $estado.aplicados.Remove($tweak.id)
+        Save-Estado $estado
+        return @{ id = $tweak.id; ok = $true }
+    }
 
     if ($entrada.backup.regOps) {
         Undo-RegOps $entrada.backup.regOps

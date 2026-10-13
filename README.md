@@ -26,7 +26,20 @@ mesmo tipo costumam ter.
 - **Privacidade**: telemetria mínima, DiagTrack, ID de publicidade, histórico
   de atividades, relatório de erros.
 - **Aparência**: efeitos visuais, transparência, notificações.
-- **Limpeza**: temporários, prefetch, lixeira.
+- **Limpeza**: temporários, prefetch, lixeira, memória em standby.
+- **Hz do monitor**: detecta e aplica a taxa de atualização máxima suportada.
+- **Perfis prontos**: Competitivo Total, Equilibrado, PC Modesto, Privacidade
+  Máxima e Padrão Windows (reverte tudo) — cada um aplica um conjunto de
+  ajustes do catálogo de uma vez.
+- **Debloat**: lista e remove ~22 apps de fábrica (Clima, Xbox, Copilot,
+  Widgets, etc.) via `Get-AppxPackage`/`Remove-AppxPackage`. Exige admin e
+  **não é reversível** por aqui — reinstale pela Microsoft Store se precisar.
+- **Drivers**: inventário de drivers instalados, lista de dispositivos com
+  problema, e backup de drivers de terceiros para uma pasta
+  (`Export-WindowsDriver`). Não baixa nada.
+- **Desempenho ao vivo**: CPU%, RAM, disco, rede e GPU em tempo real.
+- **Diagnóstico**: percentual de 0–100% do quanto a máquina ainda pode ser
+  otimizada, sondando o estado real do Windows (sem aplicar nada).
 
 Cada ajuste reversível salva o valor **anterior** do registro antes de
 alterar (em `%LOCALAPPDATA%\MeuTweaker\state.json`) e desmarcar a opção
@@ -94,6 +107,12 @@ nada ofuscado.
 ```
 engine.ps1       motor: registro (ler/gravar/reverter), estado, ponto de restauração
 tweaks.ps1       catálogo declarativo dos ajustes
-MeuTweaker.ps1   interface (Windows Forms) e ponto de entrada
-build.ps1        compila os três scripts acima em dist\MeuTweaker.exe via ps2exe
+display.ps1      Hz do monitor (P/Invoke EnumDisplaySettings/ChangeDisplaySettings)
+debloat.ps1      catálogo e remoção de apps de fábrica
+drivers.ps1      inventário, problemas e backup de drivers
+perfmon.ps1      medidor de desempenho ao vivo
+scan.ps1         diagnóstico (potencial de otimização)
+perfis.ps1       perfis prontos (conjuntos nomeados de ajustes)
+MeuTweaker.ps1   interface (Windows Forms, com abas) e ponto de entrada
+build.ps1        mescla os módulos acima e compila dist\MeuTweaker.exe via ps2exe
 ```

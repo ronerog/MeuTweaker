@@ -247,6 +247,102 @@ $script:Tweaks = @(
         admin = $false; unico = $true
         cmd = 'Clear-RecycleBin -Force -ErrorAction SilentlyContinue'
     }
+    @{
+        id = 'standby-list'; categoria = 'Limpeza'
+        nome = 'Liberar memoria em standby'
+        desc = 'Devolve RAM ao sistema esvaziando o working set dos processos (antes de abrir um jogo, por exemplo).'
+        admin = $false; unico = $true
+        cmd = 'Add-Type -Name PS -Namespace MT -MemberDefinition ''[DllImport("psapi.dll")] public static extern bool EmptyWorkingSet(IntPtr hProcess);''; ' +
+              '$n=0; Get-Process | Where-Object { $_.Id -ne $PID -and $_.ProcessName -notin @(''csrss'',''winlogon'',''System'',''Idle'',''Memory Compression'') } | ForEach-Object { try { if ([MT.PS]::EmptyWorkingSet($_.Handle)) { $n++ } } catch {} }; ' +
+              'Write-Output "Working set liberado em $n processos"'
+    }
+
+    # ---------------- NOVOS (perfis / Hz do monitor) ----------------
+    @{
+        id = 'monitor-max-hz'; categoria = 'Jogos'
+        nome = 'Ativar taxa de atualizacao maxima do monitor'
+        desc = 'Detecta o Hz maximo que o monitor suporta na resolucao atual e aplica.'
+        admin = $false; tipoEspecial = 'maxHz'
+    }
+    @{
+        id = 'apps-background-off'; categoria = 'Privacidade'
+        nome = 'Desativar apps da Store em segundo plano'
+        desc = 'Impede que aplicativos da Microsoft Store rodem em background consumindo CPU e RAM.'
+        admin = $false
+        regOps = @(@{ hive='HKCU'; chave='Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications'; nome='GlobalUserDisabled'; tipo='DWord'; valor=1 })
+    }
+    @{
+        id = 'edge-preload-off'; categoria = 'Desempenho'
+        nome = 'Desativar pre-carregamento do Edge'
+        desc = 'Impede o Edge de ficar residente na memoria mesmo sem ser aberto.'
+        admin = $true
+        regOps = @(
+            @{ hive='HKLM'; chave='SOFTWARE\Policies\Microsoft\Edge'; nome='StartupBoostEnabled'; tipo='DWord'; valor=0 }
+            @{ hive='HKLM'; chave='SOFTWARE\Policies\Microsoft\Edge'; nome='BackgroundModeEnabled'; tipo='DWord'; valor=0 }
+        )
+    }
+    @{
+        id = 'sugestoes-off'; categoria = 'Privacidade'
+        nome = 'Desativar dicas e sugestoes do Windows'
+        desc = 'Remove sugestoes de apps e "dicas" promocionais no menu Iniciar e nas Configuracoes.'
+        admin = $false
+        regOps = @(
+            @{ hive='HKCU'; chave='Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'; nome='SystemPaneSuggestionsEnabled'; tipo='DWord'; valor=0 }
+            @{ hive='HKCU'; chave='Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'; nome='SubscribedContent-338388Enabled'; tipo='DWord'; valor=0 }
+        )
+    }
+    @{
+        id = 'copilot-off'; categoria = 'Privacidade'
+        nome = 'Desativar Copilot'
+        desc = 'Remove o Copilot da barra de tarefas (sem efeito se nao estiver instalado).'
+        admin = $false
+        regOps = @(@{ hive='HKCU'; chave='Software\Policies\Microsoft\Windows\WindowsCopilot'; nome='TurnOffWindowsCopilot'; tipo='DWord'; valor=1 })
+    }
+    @{
+        id = 'busca-bing-off'; categoria = 'Privacidade'
+        nome = 'Desativar busca Bing no menu Iniciar'
+        desc = 'Menu Iniciar busca so no seu PC, sem resultados da web.'
+        admin = $false
+        regOps = @(@{ hive='HKCU'; chave='Software\Microsoft\Windows\CurrentVersion\Search'; nome='BingSearchEnabled'; tipo='DWord'; valor=0 })
+    }
+    @{
+        id = 'telemetria-compatibilidade-off'; categoria = 'Privacidade'
+        nome = 'Desativar telemetria de compatibilidade'
+        desc = 'Para o coletor de inventario de compatibilidade de apps, que roda em segundo plano.'
+        admin = $true
+        regOps = @(
+            @{ hive='HKLM'; chave='SOFTWARE\Policies\Microsoft\Windows\AppCompat'; nome='AITEnable'; tipo='DWord'; valor=0 }
+            @{ hive='HKLM'; chave='SOFTWARE\Policies\Microsoft\Windows\AppCompat'; nome='DisableInventory'; tipo='DWord'; valor=1 }
+        )
+    }
+    @{
+        id = 'conteudo-promocional-off'; categoria = 'Privacidade'
+        nome = 'Desativar conteudo promocional da nuvem'
+        desc = 'Bloqueia apps promocionais e "experiencias de consumidor" que o Windows instala sozinho.'
+        admin = $true
+        regOps = @(
+            @{ hive='HKLM'; chave='SOFTWARE\Policies\Microsoft\Windows\CloudContent'; nome='DisableWindowsConsumerFeatures'; tipo='DWord'; valor=1 }
+            @{ hive='HKLM'; chave='SOFTWARE\Policies\Microsoft\Windows\CloudContent'; nome='DisableCloudOptimizedContent'; tipo='DWord'; valor=1 }
+        )
+    }
+    @{
+        id = 'localizacao-off'; categoria = 'Privacidade'
+        nome = 'Desativar servico de localizacao'
+        desc = 'Windows para de rastrear a localizacao do dispositivo.'
+        admin = $true
+        regOps = @(@{ hive='HKLM'; chave='SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors'; nome='DisableLocation'; tipo='DWord'; valor=1 })
+    }
+    @{
+        id = 'busca-nuvem-off'; categoria = 'Privacidade'
+        nome = 'Desativar pesquisa na nuvem e Cortana'
+        desc = 'Busca do Windows sem Cortana, sem resultados da nuvem e sem "destaques de pesquisa".'
+        admin = $true
+        regOps = @(
+            @{ hive='HKLM'; chave='SOFTWARE\Policies\Microsoft\Windows\Windows Search'; nome='AllowCortana'; tipo='DWord'; valor=0 }
+            @{ hive='HKLM'; chave='SOFTWARE\Policies\Microsoft\Windows\Windows Search'; nome='AllowCloudSearch'; tipo='DWord'; valor=0 }
+            @{ hive='HKLM'; chave='SOFTWARE\Policies\Microsoft\Windows\Windows Search'; nome='EnableDynamicContentInWSB'; tipo='DWord'; valor=0 }
+        )
+    }
 )
 
 function Get-Tweaks { return $script:Tweaks }
