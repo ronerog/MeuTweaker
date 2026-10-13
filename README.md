@@ -42,6 +42,18 @@ automaticamente na primeira aplicação.
 - Não toca em arquivos de jogo nem em anti-cheat.
 - Não desativa a proteção em tempo real do Defender.
 
+## Se algum ajuste falhar
+
+A maioria dos ajustes marcados `[admin]` exige que o MeuTweaker esteja
+rodando **como administrador**. Se não estiver, o app pula esses ajustes e
+avisa quais foram pulados ao final — use o botão **"Reiniciar como
+administrador"** que aparece na barra inferior quando o app não está
+elevado.
+
+Se um ajuste falhar mesmo rodando como administrador, a mensagem de erro
+mostrada é o motivo real (não genérico) — normalmente outro programa ou
+política de grupo está controlando aquela configuração.
+
 ## Executando a partir do código-fonte
 
 ```powershell

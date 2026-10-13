@@ -98,48 +98,89 @@ foreach ($t in ($script:Tweaks | Where-Object { $_.unico })) {
     Add-LinhaTweak $t
 }
 
+$script:botoesAcao = @()
+
+function Set-BotoesHabilitados([bool]$habilitado) {
+    foreach ($b in $script:botoesAcao) { $b.Enabled = $habilitado }
+}
+
+# Atualiza o texto de status E processa a fila de mensagens do Windows.
+# Sem o DoEvents a janela "congela" (nao repinta, nao responde a mover/
+# arrastar) enquanto o loop de aplicar/reverter roda, porque tudo acontece
+# na mesma thread da interface. Isso NAO torna a operacao assincrona de
+# verdade, so evita a aparencia de travamento durante os poucos segundos
+# que o loop leva.
 function Mostrar-Status([string]$texto) {
     $titulo.Text = $texto
     $form.Refresh()
+    [System.Windows.Forms.Application]::DoEvents()
+}
+
+function Restart-ComoAdmin {
+    $exeAtual = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+    try {
+        if ($exeAtual -match '\\(powershell|pwsh)(\.exe)?$' -and $PSCommandPath) {
+            Start-Process -FilePath $exeAtual -ArgumentList @('-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"") -Verb RunAs | Out-Null
+        } else {
+            Start-Process -FilePath $exeAtual -Verb RunAs | Out-Null
+        }
+        $form.Close()
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Nao foi possivel reiniciar como administrador: $($_.Exception.Message)", 'MeuTweaker') | Out-Null
+    }
 }
 
 function Aplicar-Selecionados {
-    if (-not (Test-Admin)) {
-        [System.Windows.Forms.MessageBox]::Show('Para aplicar os ajustes marcados como [admin], execute o MeuTweaker como administrador.', 'MeuTweaker') | Out-Null
-    }
-    New-PontoRestauracao | Out-Null
-    $erros = @()
-    foreach ($t in $script:Tweaks) {
-        $cb = $checkboxes[$t.id]
-        if (-not $cb -or -not $cb.Checked) { continue }
-        if ($t.admin -and -not (Test-Admin)) { continue }
-        Mostrar-Status "Aplicando: $($t.nome)..."
-        if ($t.unico) {
-            $r = Invoke-TweakUnico $t
-        } elseif (-not (Test-TweakAplicado $t.id)) {
-            $r = Invoke-Tweak $t
-        } else { continue }
-        if (-not $r.ok) { $erros += "$($t.nome): $($r.detail)" }
-    }
-    Mostrar-Status 'MeuTweaker'
-    if ($erros.Count -gt 0) {
-        [System.Windows.Forms.MessageBox]::Show(($erros -join "`n"), 'Alguns ajustes falharam') | Out-Null
-    } else {
-        [System.Windows.Forms.MessageBox]::Show('Ajustes aplicados.', 'MeuTweaker') | Out-Null
+    Set-BotoesHabilitados $false
+    try {
+        New-PontoRestauracao | Out-Null
+        $erros = @()
+        $puloPorAdmin = @()
+        foreach ($t in $script:Tweaks) {
+            $cb = $checkboxes[$t.id]
+            if (-not $cb -or -not $cb.Checked) { continue }
+            if ($t.admin -and -not (Test-Admin)) { $puloPorAdmin += $t.nome; continue }
+            Mostrar-Status "Aplicando: $($t.nome)..."
+            if ($t.unico) {
+                $r = Invoke-TweakUnico $t
+            } elseif (-not (Test-TweakAplicado $t.id)) {
+                $r = Invoke-Tweak $t
+            } else { continue }
+            if (-not $r.ok) { $erros += "$($t.nome): $($r.detail)" }
+        }
+        Mostrar-Status 'MeuTweaker'
+
+        $partes = @()
+        if ($erros.Count -gt 0) { $partes += "Falharam:`n - " + ($erros -join "`n - ") }
+        if ($puloPorAdmin.Count -gt 0) {
+            $partes += "Precisam de administrador (nao aplicados):`n - " + ($puloPorAdmin -join "`n - ") + "`n`nReinicie o MeuTweaker como administrador para aplicar estes."
+        }
+        if ($partes.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show('Ajustes aplicados.', 'MeuTweaker') | Out-Null
+        } else {
+            [System.Windows.Forms.MessageBox]::Show(($partes -join "`n`n"), 'MeuTweaker') | Out-Null
+        }
+    } finally {
+        Set-BotoesHabilitados $true
     }
 }
 
 function Reverter-Selecionados {
-    foreach ($t in $script:Tweaks) {
-        $cb = $checkboxes[$t.id]
-        if (-not $cb -or $t.unico) { continue }
-        if (-not $cb.Checked -and (Test-TweakAplicado $t.id)) {
-            Mostrar-Status "Revertendo: $($t.nome)..."
-            Revert-Tweak $t | Out-Null
+    Set-BotoesHabilitados $false
+    try {
+        foreach ($t in $script:Tweaks) {
+            $cb = $checkboxes[$t.id]
+            if (-not $cb -or $t.unico) { continue }
+            if (-not $cb.Checked -and (Test-TweakAplicado $t.id)) {
+                Mostrar-Status "Revertendo: $($t.nome)..."
+                Revert-Tweak $t | Out-Null
+            }
         }
+        Mostrar-Status 'MeuTweaker'
+        [System.Windows.Forms.MessageBox]::Show('Ajustes desmarcados foram revertidos.', 'MeuTweaker') | Out-Null
+    } finally {
+        Set-BotoesHabilitados $true
     }
-    Mostrar-Status 'MeuTweaker'
-    [System.Windows.Forms.MessageBox]::Show('Ajustes desmarcados foram revertidos.', 'MeuTweaker') | Out-Null
 }
 
 function Aplicar-Recomendados {
@@ -179,5 +220,18 @@ $botaoRestore.Add_Click({
     [System.Windows.Forms.MessageBox]::Show($r.detail, 'MeuTweaker') | Out-Null
 })
 $barraBotoes.Controls.Add($botaoRestore)
+
+$script:botoesAcao = @($botaoBoost, $botaoAplicar, $botaoReverter, $botaoRestore)
+
+if (-not (Test-Admin)) {
+    $botaoAdmin = New-Object System.Windows.Forms.Button
+    $botaoAdmin.Text = 'Reiniciar como administrador'
+    $botaoAdmin.Width = 190
+    $botaoAdmin.Margin = New-Object System.Windows.Forms.Padding(10, 10, 0, 0)
+    $botaoAdmin.BackColor = [System.Drawing.Color]::FromArgb(120, 40, 40)
+    $botaoAdmin.ForeColor = [System.Drawing.Color]::White
+    $botaoAdmin.Add_Click({ Restart-ComoAdmin })
+    $barraBotoes.Controls.Add($botaoAdmin)
+}
 
 [void]$form.ShowDialog()

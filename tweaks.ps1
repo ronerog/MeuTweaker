@@ -14,8 +14,13 @@ $script:Tweaks = @(
         nome = 'Plano de energia: Desempenho Maximo'
         desc = 'Ativa o plano Ultimate Performance (ou High Performance como alternativa).'
         admin = $false; recomendado = $true
-        cmd = "powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 | Out-Null; `$g = (powercfg /l | Select-String 'Ultimate Performance').ToString().Split()[3]; if (`$g) { powercfg /setactive `$g } else { powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c }"
-        revertCmd = "powercfg /setactive 381b4222-f694-41f0-9685-ff5bb260df2e"
+        # GUID proprio e fixo para o plano duplicado: evita criar um novo plano a
+        # cada aplicacao e nao depende do nome do plano (que e traduzido pelo
+        # Windows - "Ultimate Performance" so existe em ingles; em pt-BR e
+        # "Desempenho Maximo"). O template e identificado so pelo GUID, que e
+        # fixo independente do idioma do sistema.
+        cmd = "if (-not (powercfg /l | Select-String '9c3f3889-6c4a-4def-9e93-dcd13c88b8a6')) { powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 9c3f3889-6c4a-4def-9e93-dcd13c88b8a6 | Out-Null }; powercfg /setactive 9c3f3889-6c4a-4def-9e93-dcd13c88b8a6; if (`$LASTEXITCODE -ne 0) { powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c }"
+        revertCmd = "powercfg /setactive 381b4222-f694-41f0-9685-ff5bb260df2e; powercfg -delete 9c3f3889-6c4a-4def-9e93-dcd13c88b8a6 2>`$null"
     }
     @{
         id = 'compactacao-memoria-off'; categoria = 'Desempenho'

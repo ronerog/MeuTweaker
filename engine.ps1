@@ -112,6 +112,26 @@ function Remove-ValorRegistro([string]$hive, [string]$chave, [string]$nome) {
     } catch { return @{ ok = $true } }
 }
 
+# Executa um comando (string de PowerShell) e detecta falha de verdade.
+# Por padrao, um erro de cmdlet (ex.: Set-Service sem privilegio de admin) e
+# "nao terminal": ele imprime o erro mas a execucao CONTINUA e nao lanca
+# excecao nenhuma - um try/catch comum nao percebe nada. Aqui a preferencia
+# de erro e forcada para 'Stop' dentro de um escopo isolado (nao afeta o
+# resto do app), entao qualquer linha do comando que nao tenha o proprio
+# -ErrorAction silencioso passa a lancar excecao de verdade. Tambem checa o
+# codigo de saida de comandos nativos (powercfg, fsutil, netsh, DISM...),
+# que nunca lancam excecao do PowerShell por conta propria.
+function Invoke-ComandoVerificado([string]$comando) {
+    $saida = & {
+        $ErrorActionPreference = 'Stop'
+        Invoke-Expression $comando 2>&1
+    } | Out-String
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+        throw "Comando externo retornou codigo $LASTEXITCODE. Saida: $($saida.Trim())"
+    }
+    return $saida.Trim()
+}
+
 # Aplica um tweak do catalogo. Suporta regOps (lista de operacoes de registro,
 # com leitura do valor anterior para permitir reversao) e/ou cmd (comando
 # PowerShell direto, usado para acoes que nao sao de registro).
@@ -135,7 +155,7 @@ function Invoke-Tweak($tweak) {
 
     if ($tweak.cmd) {
         try {
-            Invoke-Expression $tweak.cmd | Out-Null
+            Invoke-ComandoVerificado $tweak.cmd | Out-Null
         } catch {
             Undo-RegOps $backup.regOps
             return @{ id = $tweak.id; ok = $false; detail = "Falha ao executar comando: $($_.Exception.Message)" }
@@ -167,7 +187,7 @@ function Revert-Tweak($tweak) {
         Undo-RegOps $entrada.backup.regOps
     }
     if ($tweak.revertCmd) {
-        try { Invoke-Expression $tweak.revertCmd | Out-Null } catch {}
+        try { Invoke-ComandoVerificado $tweak.revertCmd | Out-Null } catch {}
     }
 
     $estado.aplicados.Remove($tweak.id)
@@ -183,8 +203,8 @@ function Test-TweakAplicado($id) {
 # Executa uma unica vez (limpeza etc.), sem estado reversivel.
 function Invoke-TweakUnico($tweak) {
     try {
-        $saida = Invoke-Expression $tweak.cmd 2>&1 | Out-String
-        return @{ id = $tweak.id; ok = $true; detail = $saida.Trim() }
+        $saida = Invoke-ComandoVerificado $tweak.cmd
+        return @{ id = $tweak.id; ok = $true; detail = $saida }
     } catch {
         return @{ id = $tweak.id; ok = $false; detail = $_.Exception.Message }
     }
