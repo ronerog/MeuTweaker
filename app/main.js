@@ -18,6 +18,12 @@ function bridgePath() {
   return path.join(corePath(), 'bridge.ps1');
 }
 
+// Tempo maximo de espera por uma chamada ao bridge.ps1. Sem isso, qualquer
+// travamento real do PowerShell (antivirus interceptando, WMI lento, servico
+// do Restore Point parado, etc.) deixava a promise pendurada para sempre e a
+// tela travava num "carregando" infinito sem nenhuma mensagem de erro.
+const TIMEOUT_MS = 25000;
+
 // Executa uma acao do bridge.ps1 e resolve com o objeto JSON de resultado.
 // Cada chamada sobe um processo powershell novo (app nao e um servidor de
 // alta frequencia; simplicidade e robustez pesam mais aqui do que os ~300ms
@@ -37,24 +43,35 @@ function callBridge(action, payload) {
     const proc = spawn('powershell.exe', args, { windowsHide: true });
     let stdout = '';
     let stderr = '';
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => {
+      proc.kill();
+      finish({ ok: false, detail: `Tempo esgotado esperando o PowerShell responder (${action}). Tente de novo; se persistir, pode ser antivirus bloqueando a execucao.` });
+    }, TIMEOUT_MS);
     proc.stdout.setEncoding('utf8');
     proc.stderr.setEncoding('utf8');
     proc.stdout.on('data', (d) => { stdout += d; });
     proc.stderr.on('data', (d) => { stderr += d; });
     proc.on('error', (err) => {
-      resolve({ ok: false, detail: `Falha ao iniciar PowerShell: ${err.message}` });
+      finish({ ok: false, detail: `Falha ao iniciar PowerShell: ${err.message}` });
     });
     proc.on('close', () => {
       const idx = stdout.lastIndexOf(MARCADOR);
       if (idx === -1) {
-        resolve({ ok: false, detail: stderr.trim() || 'Sem resposta do PowerShell.' });
+        finish({ ok: false, detail: stderr.trim() || 'Sem resposta do PowerShell.' });
         return;
       }
       const jsonText = stdout.slice(idx + MARCADOR.length).trim();
       try {
-        resolve(JSON.parse(jsonText));
+        finish(JSON.parse(jsonText));
       } catch (e) {
-        resolve({ ok: false, detail: `Resposta invalida do PowerShell: ${e.message}` });
+        finish({ ok: false, detail: `Resposta invalida do PowerShell: ${e.message}` });
       }
     });
   });

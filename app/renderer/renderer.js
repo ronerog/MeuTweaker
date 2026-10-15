@@ -8,6 +8,7 @@ const state = {
   switches: {},         // id -> boolean (estado atual do toggle na tela)
   loaded: { debloat: false, drivers: false, desempenho: false },
   perfTimer: null,
+  perfBusy: false,
 };
 
 // ---------------- helpers de UI ----------------
@@ -161,8 +162,20 @@ function renderTweakUnico(t) {
 }
 
 async function carregarCatalogo() {
+  const badge = document.getElementById('admin-status');
+  badge.textContent = 'verificando privilegios...';
+  badge.className = 'admin-status';
   const r = await window.mt.getCatalog();
-  if (!r.ok) { toast(r.detail || 'Falha ao carregar catalogo.', 'error'); return; }
+  if (!r.ok) {
+    badge.textContent = 'falha ao carregar - clique para tentar novamente';
+    badge.className = 'admin-status not-admin';
+    badge.onclick = carregarCatalogo;
+    badge.style.cursor = 'pointer';
+    toast(r.detail || 'Falha ao carregar catalogo.', 'error');
+    return;
+  }
+  badge.onclick = null;
+  badge.style.cursor = 'default';
   state.catalog = r;
   aplicarStatusAdmin(r.isAdmin);
   renderPerfis(r.perfis);
@@ -354,9 +367,21 @@ function metricaHtml(label, valorTexto, pct) {
 }
 
 async function atualizarPerfLive() {
-  const r = await window.mt.getPerfLive();
-  if (!r.ok) return;
-  const a = r.amostra;
+  // Evita empilhar chamadas se uma amostra anterior ainda nao voltou (ex.:
+  // WMI lento numa maquina especifica) - sem isso, cada tick do setInterval
+  // sobe mais um processo powershell mesmo com o anterior ainda rodando.
+  if (state.perfBusy) return;
+  state.perfBusy = true;
+  try {
+    const r = await window.mt.getPerfLive();
+    if (!r.ok) return;
+    renderPerfLive(r.amostra);
+  } finally {
+    state.perfBusy = false;
+  }
+}
+
+function renderPerfLive(a) {
   const ramGb = (a.ramDisponivelMb / 1024).toFixed(1);
   document.getElementById('perf-live').innerHTML =
     metricaHtml('CPU', `${a.cpuPct}%`, a.cpuPct) +
