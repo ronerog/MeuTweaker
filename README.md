@@ -6,6 +6,9 @@ otimização de Windows conhecidas publicamente (chaves de registro
 documentadas pela Microsoft e comandos nativos como `powercfg`, `netsh`,
 `fsutil`) — nada aqui é proprietário.
 
+Interface em Electron (HTML/CSS/JS); a lógica de cada ajuste continua em
+PowerShell puro, legível e sem nada ofuscado.
+
 ## Por que existe
 
 Script próprio inspirado em tweakers de Windows gratuitos e conhecidos da
@@ -67,52 +70,61 @@ Se um ajuste falhar mesmo rodando como administrador, a mensagem de erro
 mostrada é o motivo real (não genérico) — normalmente outro programa ou
 política de grupo está controlando aquela configuração.
 
+## Arquitetura
+
+```
+core/            motor de tweaks em PowerShell (nao muda com a UI)
+  engine.ps1       registro (ler/gravar/reverter), estado, ponto de restauracao
+  tweaks.ps1       catalogo declarativo dos ajustes
+  display.ps1      Hz do monitor (P/Invoke EnumDisplaySettings/ChangeDisplaySettings)
+  debloat.ps1      catalogo e remocao de apps de fabrica
+  drivers.ps1      inventario, problemas e backup de drivers
+  perfmon.ps1      medidor de desempenho ao vivo
+  scan.ps1         diagnostico (potencial de otimizacao)
+  perfis.ps1       perfis prontos (conjuntos nomeados de ajustes)
+  bridge.ps1       ponte JSON entre o Electron e as funcoes acima
+
+app/             interface em Electron
+  main.js          processo principal: janela, IPC, spawn do bridge.ps1
+  preload.js       expoe a API (window.mt) para a renderer, sem Node direto
+  renderer/        HTML/CSS/JS da interface (sem framework)
+  package.json     scripts e config do electron-builder (gera o instalador)
+```
+
+A interface nunca toca em registro/serviços diretamente: toda ação do
+usuário vira uma chamada IPC → `main.js` sobe um `powershell.exe` chamando
+`core/bridge.ps1 -Action <acao>` → o bridge dot-source os módulos de `core/`
+e devolve um JSON. Trocar a interface no futuro (ou adicionar uma CLI) não
+exige tocar na lógica de nenhum ajuste.
+
 ## Executando a partir do código-fonte
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\MeuTweaker.ps1
+cd app
+npm install
+npm start
 ```
 
-Ajustes marcados `[admin]` só se aplicam se o PowerShell/exe estiver
-rodando como administrador.
-
-## Gerando o .exe
-
-Usa o [ps2exe](https://github.com/MScholtes/PS2EXE) (módulo open-source do
-PowerShell Gallery) para compilar os três scripts (`engine.ps1`,
-`tweaks.ps1`, `MeuTweaker.ps1`) num único executável autocontido:
+## Gerando o instalador
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\build.ps1
+cd app
+npm install
+npm run dist
 ```
 
-O resultado fica em `dist\MeuTweaker.exe`.
+Usa o [electron-builder](https://www.electron.build/) para gerar um
+instalador NSIS (`.exe`) em `app\dist`. Instalação por usuário (não exige
+admin para instalar); os ajustes que exigem admin continuam avisando e
+oferecendo "Reiniciar como administrador" dentro do app, como antes.
 
 ## Sobre o alerta do Windows/SmartScreen
 
-Este `.exe` **não é assinado digitalmente** (assinatura de código custa uma
-certificação paga por um emissor confiável). Qualquer executável novo e não
-assinado que grava em `HKLM` e chama PowerShell tende a disparar o
-SmartScreen do Windows ou um alerta heurístico do Defender — isso vale tanto
-para este script quanto para praticamente qualquer tweaker desse tipo
-(incluindo os comerciais). Não é sinal de vírus; é o comportamento esperado
-de software não assinado que esta ferramenta compila localmente, na sua
-própria máquina, a partir de um código que você pode ler linha por linha.
-
-Se preferir, revise `engine.ps1` e `tweaks.ps1` antes de compilar — não há
-nada ofuscado.
-
-## Estrutura
-
-```
-engine.ps1       motor: registro (ler/gravar/reverter), estado, ponto de restauração
-tweaks.ps1       catálogo declarativo dos ajustes
-display.ps1      Hz do monitor (P/Invoke EnumDisplaySettings/ChangeDisplaySettings)
-debloat.ps1      catálogo e remoção de apps de fábrica
-drivers.ps1      inventário, problemas e backup de drivers
-perfmon.ps1      medidor de desempenho ao vivo
-scan.ps1         diagnóstico (potencial de otimização)
-perfis.ps1       perfis prontos (conjuntos nomeados de ajustes)
-MeuTweaker.ps1   interface (Windows Forms, com abas) e ponto de entrada
-build.ps1        mescla os módulos acima e compila dist\MeuTweaker.exe via ps2exe
-```
+O instalador e o `.exe` gerados **não são assinados digitalmente**
+(assinatura de código custa uma certificação paga por um emissor confiável).
+Qualquer executável novo e não assinado que grava em `HKLM` e chama
+PowerShell tende a disparar o SmartScreen do Windows ou um alerta heurístico
+do Defender — isso vale tanto para este projeto quanto para praticamente
+qualquer tweaker desse tipo (incluindo os comerciais). Não é sinal de vírus;
+é o comportamento esperado de software não assinado que você mesmo compila
+localmente, a partir de um código que pode ler linha por linha.

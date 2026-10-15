@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+<title>MeuTweaker</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div class="brand">
+        <span class="brand-mark">MT</span>
+        <span class="brand-name">MeuTweaker</span>
+      </div>
+      <div id="admin-status" class="admin-status">verificando privilegios...</div>
+    </header>
+
+    <div id="body">
+      <nav id="sidebar">
+        <button class="nav-item active" data-view="ajustes">Ajustes</button>
+        <button class="nav-item" data-view="debloat">Debloat</button>
+        <button class="nav-item" data-view="drivers">Drivers</button>
+        <button class="nav-item" data-view="desempenho">Desempenho</button>
+        <button class="nav-item" data-view="diagnostico">Diagnostico</button>
+      </nav>
+
+      <main id="content">
+
+        <section id="view-ajustes" class="view active">
+          <div id="perfis-row" class="perfis-row"></div>
+          <div id="tweaks-list" class="tweaks-list"></div>
+        </section>
+
+        <section id="view-debloat" class="view">
+          <p class="hint">Remocao de apps de fabrica exige administrador. Nao e reversivel por aqui - reinstale pela Microsoft Store se precisar de volta.</p>
+          <div id="debloat-list" class="debloat-list"></div>
+          <div class="view-actions">
+            <button id="btn-debloat-refresh" class="btn">Atualizar lista</button>
+            <button id="btn-debloat-remove" class="btn btn-danger">Remover selecionados</button>
+          </div>
+        </section>
+
+        <section id="view-drivers" class="view">
+          <h2 class="section-title">Dispositivos com problema</h2>
+          <div class="table-wrap">
+            <table id="table-problemas">
+              <thead><tr><th>Dispositivo</th><th>Classe</th><th>Status</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <h2 class="section-title">Drivers instalados</h2>
+          <div class="table-wrap">
+            <table id="table-drivers">
+              <thead><tr><th>Classe</th><th>Dispositivo</th><th>Versao</th><th>Data</th><th>Fornecedor</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="view-actions">
+            <button id="btn-drivers-refresh" class="btn">Atualizar</button>
+            <button id="btn-drivers-backup" class="btn">Fazer backup dos drivers...</button>
+          </div>
+        </section>
+
+        <section id="view-desempenho" class="view">
+          <div id="perf-static" class="perf-static"></div>
+          <div id="perf-live" class="perf-live"></div>
+        </section>
+
+        <section id="view-diagnostico" class="view">
+          <div class="view-actions">
+            <button id="btn-diagnostico-run" class="btn">Rodar diagnostico</button>
+          </div>
+          <div id="diagnostico-percentual" class="diagnostico-percentual">Potencial de otimizacao: -</div>
+          <ul id="diagnostico-achados" class="diagnostico-achados"></ul>
+        </section>
+
+      </main>
+    </div>
+
+    <footer id="actionbar">
+      <button id="btn-boost" class="btn btn-primary">Otimizar agora (recomendados)</button>
+      <button id="btn-apply" class="btn">Aplicar marcados</button>
+      <button id="btn-revert" class="btn">Reverter desmarcados</button>
+      <button id="btn-restore-point" class="btn">Criar ponto de restauracao</button>
+      <button id="btn-admin" class="btn btn-warn" hidden>Reiniciar como administrador</button>
+      <span id="actionbar-status" class="actionbar-status"></span>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <div id="overlay" class="overlay" hidden><div class="spinner"></div><div id="overlay-text"></div></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

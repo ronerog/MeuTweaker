@@ -1,2 +1,4 @@
 dist/
 *.exe
+app/node_modules/
+app/dist/

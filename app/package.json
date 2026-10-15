@@ -1,0 +1,43 @@
+{
+  "name": "meutweaker",
+  "version": "2.0.0",
+  "description": "Otimizador de Windows pessoal, sem login, sem telemetria.",
+  "author": "Ronero",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.ronero.meutweaker",
+    "productName": "MeuTweaker",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*"
+    ],
+    "extraResources": [
+      { "from": "../core", "to": "core" }
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MeuTweaker"
+    },
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    }
+  }
+}
