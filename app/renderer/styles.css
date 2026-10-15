@@ -274,6 +274,12 @@ tbody tr:last-child td { border-bottom: none; }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 14px; z-index: 50;
 }
+/* [hidden] e ".overlay" tem a mesma especificidade (0,1,0); sem esta regra,
+   ".overlay { display: flex }" vence por ordem no cascade e o atributo
+   hidden (usado em showOverlay/hideOverlay no renderer.js) nunca some de
+   verdade - overlay+spinner ficam visiveis para sempre, cobrindo e
+   bloqueando cliques na tela inteira mesmo com overlay.hidden = true. */
+.overlay[hidden] { display: none; }
 .spinner {
   width: 34px; height: 34px;
   border: 3px solid var(--border);
