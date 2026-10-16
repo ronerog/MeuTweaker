@@ -77,14 +77,34 @@ function callBridge(action, payload) {
   });
 }
 
+// Tenta relancar o app elevado. Resolve { ok, detail } em vez de so chutar o
+// app pra fora: se o usuario cancelar o UAC (ou algo falhar), o antigo codigo
+// chamava app.quit() de qualquer forma e o app so fechava sem abrir de novo -
+// parecia "nao funcionar" nada. Agora so fechamos se a elevacao de fato comecou.
 function restartAsAdmin() {
-  const exe = process.execPath;
-  const args = app.isPackaged ? process.argv.slice(1) : [app.getAppPath()];
-  const quoted = (s) => `'${String(s).replace(/'/g, "''")}'`;
-  const argList = args.length ? `-ArgumentList @(${args.map(quoted).join(',')}) ` : '';
-  const psCmd = `Start-Process -FilePath ${quoted(exe)} ${argList}-Verb RunAs`;
-  spawn('powershell.exe', ['-NoProfile', '-Command', psCmd], { windowsHide: true, detached: true });
-  app.quit();
+  return new Promise((resolve) => {
+    const exe = process.execPath;
+    const args = app.isPackaged ? process.argv.slice(1) : [app.getAppPath()];
+    const quoted = (s) => `'${String(s).replace(/'/g, "''")}'`;
+    const argList = args.length ? `-ArgumentList @(${args.map(quoted).join(',')}) ` : '';
+    const psCmd = `try { Start-Process -FilePath ${quoted(exe)} ${argList}-Verb RunAs -ErrorAction Stop; Write-Output 'MT_OK' } catch { Write-Output ('MT_ERR:' + $_.Exception.Message) }`;
+    const proc = spawn('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', psCmd,
+    ], { windowsHide: true });
+    let out = '';
+    proc.stdout.setEncoding('utf8');
+    proc.stdout.on('data', (d) => { out += d; });
+    proc.on('error', (err) => resolve({ ok: false, detail: `Falha ao iniciar PowerShell: ${err.message}` }));
+    proc.on('close', () => {
+      const trimmed = out.trim();
+      if (trimmed.includes('MT_OK')) {
+        resolve({ ok: true });
+      } else {
+        const msg = trimmed.replace(/^.*MT_ERR:/s, '').trim();
+        resolve({ ok: false, detail: msg || 'A elevacao foi cancelada ou falhou.' });
+      }
+    });
+  });
 }
 
 let janela;
@@ -97,6 +117,7 @@ function criarJanela() {
     minHeight: 560,
     backgroundColor: '#121116',
     autoHideMenuBar: true,
+    icon: path.join(__dirname, 'build', 'pc-optimizer-final-512.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -135,7 +156,11 @@ ipcMain.handle('apply-perfil', (_e, id) => callBridge('apply-perfil', { id }));
 ipcMain.handle('remove-debloat', (_e, matches) => callBridge('remove-debloat', { matches }));
 ipcMain.handle('backup-drivers', (_e, destino) => callBridge('backup-drivers', { destino }));
 
-ipcMain.handle('restart-as-admin', () => { restartAsAdmin(); });
+ipcMain.handle('restart-as-admin', async () => {
+  const r = await restartAsAdmin();
+  if (r.ok) app.quit();
+  return r;
+});
 
 ipcMain.handle('choose-folder', async () => {
   const r = await dialog.showOpenDialog(janela, { properties: ['openDirectory', 'createDirectory'] });

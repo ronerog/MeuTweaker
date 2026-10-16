@@ -19,14 +19,16 @@
     "files": [
       "main.js",
       "preload.js",
-      "renderer/**/*"
+      "renderer/**/*",
+      "build/*.png"
     ],
     "extraResources": [
       { "from": "../core", "to": "core" }
     ],
     "win": {
       "target": "nsis",
-      "signAndEditExecutable": false
+      "icon": "build/pc-optimizer-final.ico",
+      "requestedExecutionLevel": "requireAdministrator"
     },
     "nsis": {
       "oneClick": false,
@@ -34,7 +36,9 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "MeuTweaker"
+      "shortcutName": "MeuTweaker",
+      "installerIcon": "build/pc-optimizer-final.ico",
+      "uninstallerIcon": "build/pc-optimizer-final.ico"
     },
     "directories": {
       "output": "dist",

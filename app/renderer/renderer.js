@@ -237,7 +237,10 @@ document.getElementById('btn-restore-point').addEventListener('click', async () 
   toast(r.detail || (r.ok ? 'Ponto de restauracao criado.' : 'Falha.'), r.ok ? 'success' : 'error');
 });
 
-document.getElementById('btn-admin').addEventListener('click', () => window.mt.restartAsAdmin());
+document.getElementById('btn-admin').addEventListener('click', async () => {
+  const r = await window.mt.restartAsAdmin();
+  if (r && !r.ok) toast(r.detail || 'Nao foi possivel reiniciar como administrador.', 'error');
+});
 
 // ---------------- Debloat ----------------
 
